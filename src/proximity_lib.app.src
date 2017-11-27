@@ -8,6 +8,7 @@
     stdlib,
     lager,
     fast_xml,
+    stringprep,
     cuesport,
     epgsql
    ]},
