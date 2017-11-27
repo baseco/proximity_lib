@@ -1,5 +1,5 @@
 {application, proximity_lib,
- [{description, "Proximity Libraries"},
+ [{description, "Proximity Common Libraries"},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, { proximity_lib_app, []}},

@@ -1,7 +1,7 @@
 proximity_lib
 =====
 
-An OTP library
+Proximity Common Libraries
 
 Build
 -----
