@@ -2,10 +2,14 @@
  [{description, "Proximity Libraries"},
   {vsn, "0.1.0"},
   {registered, []},
+  {mod, { proximity_lib_app, []}},
   {applications,
    [kernel,
     stdlib,
-    fast_xml
+    lager,
+    fast_xml,
+    cuesport,
+    epgsql
    ]},
   {env,[]},
   {modules, []},

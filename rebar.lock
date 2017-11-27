@@ -1,10 +1,24 @@
 {"1.1.0",
-[{<<"fast_xml">>,
+[{<<"cuesport">>,
+  {git,"https://github.com/esl/cuesport.git",
+       {ref,"d82ff25baf393eb11712721fb1b881b4b9f80176"}},
+  0},
+ {<<"epgsql">>,
+  {git,"https://github.com/epgsql/epgsql.git",
+       {ref,"84b2821b25b63f6153686cbabc7e7ea8374692f5"}},
+  0},
+ {<<"fast_xml">>,
   {git,"git://github.com/processone/fast_xml",
        {ref,"dca6aaf422e3d82cc616d4f22187ce2bdb5af3c9"}},
+  0},
+ {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.9">>},1},
+ {<<"lager">>,
+  {git,"https://github.com/erlang-lager/lager.git",
+       {ref,"944b78d4b4dd32168659d5459b728851f373e514"}},
   0},
  {<<"p1_utils">>,{pkg,<<"p1_utils">>,<<"1.0.6">>},1}]}.
 [
 {pkg_hash,[
+ {<<"goldrush">>, <<"F06E5D5F1277DA5C413E84D5A2924174182FB108DABB39D5EC548B27424CD106">>},
  {<<"p1_utils">>, <<"EF0951DDF38E92B7E479AF4B8DC950DF76AF8C1030432EF68B7FD7AD17C436FE">>}]}
 ].
