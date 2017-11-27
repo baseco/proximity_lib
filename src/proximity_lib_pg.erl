@@ -6,6 +6,7 @@
 -export([start/0]).
 -export([squery/1]).
 -export([equery/2]).
+-export([escape/1]).
 
 -define(PG_POOL_NAME, proximity_lib_pg_pool).
 -define(PG_POOL_SIZE, 15).
@@ -38,6 +39,11 @@ start() ->
             ok
     end.
 
+escape(S) when is_list(S) ->
+    escape(list_to_binary(S));
+escape(S) ->
+    <<  <<(escape_2(Char))/binary>> || <<Char>> <= S >>.
+
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -59,3 +65,13 @@ parse(Result) ->
 
 to_map(Cols, Rows) ->
     [maps:from_list(lists:zipwith(fun(#column{name = N}, V) -> {N, V} end, Cols, tuple_to_list(Row))) || Row <- Rows].
+
+escape_2($\000) -> <<"\\0">>;
+escape_2($\n) -> <<"\\n">>;
+escape_2($\t) -> <<"\\t">>;
+escape_2($\b) -> <<"\\b">>;
+escape_2($\r) -> <<"\\r">>;
+escape_2($') -> <<"''">>;
+escape_2($") -> <<"\\\"">>;
+escape_2($\\) -> <<"\\\\">>;
+escape_2(C) -> <<C>>.
