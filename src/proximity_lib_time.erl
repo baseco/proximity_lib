@@ -6,10 +6,18 @@
 -export([datetime_to_timestamp/1]).
 -export([unix_timestamp/0, unix_timestamp/1]).
 -export([unix_to_timestamp/1]).
+-export([now_to_unix/1]).
+-export([unix_to_now/1]).
 
 %%====================================================================
 %% API functions
 %%====================================================================
+
+now_to_unix({Mega, Sec, Micro}) ->
+    Mega * 1000000 * 1000000 + Sec * 1000000 + Micro.
+
+unix_to_now(Unix) ->
+    {Unix div 1000000000000, Unix div 1000000 rem 1000000, Unix rem 1000000}.
 
 unix_to_timestamp(UnixTimestamp) ->
     D = unix_to_gregorian_datetime(UnixTimestamp),
