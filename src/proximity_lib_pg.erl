@@ -15,26 +15,40 @@
 %%====================================================================
 
 squery(Query) ->
-    Ret = epgsql:squery(cuesport:get_worker(?PG_POOL_NAME), Query),
-    parse(Ret).
+    Pid = pooler:take_member(?PG_POOL_NAME),
+    try
+        Ret = epgsql:squery(Pid, Query),
+        parse(Ret)
+    after
+        pooler:return_member(?PG_POOL_NAME, Pid, ok)
+    end.
 
 equery(Query, Params) ->
-    Ret = epgsql:equery(cuesport:get_worker(?PG_POOL_NAME), Query, Params),
-    parse(Ret).
+    Pid = pooler:take_member(?PG_POOL_NAME),
+    try
+        Ret = epgsql:equery(Pid, Query, Params),
+        parse(Ret)
+    after
+        pooler:return_member(?PG_POOL_NAME, Pid, ok)
+    end.
 
 start() ->
     case os:getenv("PG_HOST") of
         false ->
             ok;
         PgHost ->
-            ChildMods = [epgsql],
-            ChildMF = {epgsql, connect},
             PgUser = os:getenv("PG_USER"),
             PgDatabase = os:getenv("PG_DATABASE"),
             PgPassword = os:getenv("PG_PASSWORD"),
             PgOpts = [{database, PgDatabase}],
-            ChildArgs = [PgHost, PgUser, PgPassword, PgOpts],
-            _ = cuesport:start_link(?PG_POOL_NAME, ?PG_POOL_SIZE, ChildMods, ChildMF, {for_all, ChildArgs}),
+            PoolConfig = [
+                {name, ?PG_POOL_NAME},
+                {group, pg},
+                {max_count, 50},
+                {init_count, 15},
+                {start_mfa, {epgsql, connect, [PgHost, PgUser, PgPassword, PgOpts]}}
+            ],
+            _ = pooler:new_pool(PoolConfig),
             ok
     end.
 
