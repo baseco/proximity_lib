@@ -9,6 +9,7 @@
 
 -define(PG_POOL_NAME, proximity_lib_pg_pool).
 -define(PG_POOL_SIZE, 15).
+-define(PG_POOL_SIZE_MAX, 50).
 
 %%====================================================================
 %% API functions
@@ -40,12 +41,14 @@ start() ->
             PgUser = os:getenv("PG_USER"),
             PgDatabase = os:getenv("PG_DATABASE"),
             PgPassword = os:getenv("PG_PASSWORD"),
+            PgPoolSize = os:getenv("PG_POOL_SIZE"),
+            PgPoolSizeMax = os:getenv("PG_POOL_SIZE_MAX")
             PgOpts = [{database, PgDatabase}],
             PoolConfig = [
                 {name, ?PG_POOL_NAME},
                 {group, pg},
-                {max_count, 50},
-                {init_count, 15},
+                {max_count, PgPoolSizeMax},
+                {init_count, PgPoolSize},
                 {start_mfa, {epgsql, connect, [PgHost, PgUser, PgPassword, PgOpts]}}
             ],
             _ = pooler:new_pool(PoolConfig),
