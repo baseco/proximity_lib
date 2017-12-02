@@ -42,7 +42,7 @@ start() ->
             PgDatabase = os:getenv("PG_DATABASE"),
             PgPassword = os:getenv("PG_PASSWORD"),
             PgPoolSize = os:getenv("PG_POOL_SIZE"),
-            PgPoolSizeMax = os:getenv("PG_POOL_SIZE_MAX")
+            PgPoolSizeMax = os:getenv("PG_POOL_SIZE_MAX"),
             PgOpts = [{database, PgDatabase}],
             PoolConfig = [
                 {name, ?PG_POOL_NAME},
