@@ -10,7 +10,7 @@
 -export([equery_read/2]).
 
 -define(PG_MASTER_POOL, 'PG_MASTER_POOL').
--define(PG_GROUP, pg).
+-define(PG_GROUP_REPLICA, replica).
 -define(PG_POOL_SIZE, 15).
 -define(PG_POOL_SIZE_MAX, 50).
 
@@ -19,21 +19,21 @@
 %%====================================================================
 
 squery_read(Query) ->
-    Pid = pooler:take_group_member(?PG_GROUP),
+    Pid = pooler:take_group_member(?PG_GROUP_REPLICA),
     try
         Ret = epgsql:squery(Pid, Query),
         parse(Ret)
     after
-        pooler:return_group_member(?PG_GROUP, Pid, ok)
+        pooler:return_group_member(?PG_GROUP_REPLICA, Pid, ok)
     end.
 
 equery_read(Query, Params) ->
-    Pid = pooler:take_group_member(?PG_GROUP),
+    Pid = pooler:take_group_member(?PG_GROUP_REPLICA),
     try
         Ret = epgsql:equery(Pid, Query, Params),
         parse(Ret)
     after
-        pooler:return_group_member(?PG_GROUP, Pid, ok)
+        pooler:return_group_member(?PG_GROUP_REPLICA, Pid, ok)
     end.
 
 squery(Query) ->
@@ -74,14 +74,21 @@ start_pools() ->
                     false ->
                         ok;
                     PoolConfig ->
-                        [PgUser, PgDatabase, PgPassword, PgHost, PgPoolSize, PgPoolSizeMax] = parse_pool_config(list_to_binary(PoolConfig)),
+                        {PgUser, PgPassword, PgHost, PgDatabase} = parse_pool_config(list_to_binary(PoolConfig)),
                         PgOpts = [{database, PgDatabase}],
+                        Group = case Pool of
+                            <<"MASTER">> ->
+                                master;
+                            _  ->
+                                replica
+                        end,
+                        Args = [PgHost, PgUser, PgPassword, PgOpts],
                         Config = [
                             {name, pg_pool_name(Pool)},
-                            {group, pg},
-                            {max_count, PgPoolSizeMax},
-                            {init_count, PgPoolSize},
-                            {start_mfa, {epgsql, connect, [PgHost, PgUser, PgPassword, PgOpts]}}
+                            {group, Group},
+                            {max_count, pool_size_max()},
+                            {init_count, pool_size()},
+                            {start_mfa, {epgsql, connect, Args}}
                         ],
                         {ok, _Pid} = pooler:new_pool(Config),
                         ok
@@ -89,15 +96,28 @@ start_pools() ->
             end || Pool <- PoolsList]
     end.
 
-%% Example: proximity::proximity::password::host::15::50
-parse_pool_config(PoolConfig) ->
-    case binary:split(PoolConfig, <<"::">>, [global]) of
-        [PgUser, PgDatabase, PgPassword, PgHost, PgPoolSize, PgPoolSizeMax] ->
-            [binary_to_list(PgUser), binary_to_list(PgDatabase), binary_to_list(PgPassword), binary_to_list(PgHost),
-                binary_to_integer(PgPoolSize), binary_to_integer(PgPoolSizeMax)];
-        [PgUser, PgDatabase, PgPassword, PgHost] ->
-            [binary_to_list(PgUser), binary_to_list(PgDatabase), binary_to_list(PgPassword), binary_to_list(PgHost), ?PG_POOL_SIZE, ?PG_POOL_SIZE_MAX]
+pool_size() ->
+    case os:getenv("PG_POOL_SIZE") of
+        false ->
+            ?PG_POOL_SIZE;
+        Size ->
+            list_to_integer(Size)
     end.
+
+pool_size_max() ->
+    case os:getenv("PG_POOL_SIZE_MAX") of
+        false ->
+            ?PG_POOL_SIZE_MAX;
+        Size ->
+            list_to_integer(Size)
+    end.
+
+%% Example: user:password@host/database
+parse_pool_config(PoolConfig) ->
+    [UserPassword, Rest] = binary:split(PoolConfig, <<"@">>),
+    [PgUser, PgPassword] = binary:split(UserPassword, <<":">>),
+    [PgHost, PgDatabase] = binary:split(Rest, <<"/">>),
+    {binary_to_list(PgUser), binary_to_list(PgPassword), binary_to_list(PgHost), binary_to_list(PgDatabase)}.
 
 pg_pool_name(<<"MASTER">>) ->
     ?PG_MASTER_POOL;
