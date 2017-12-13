@@ -11,6 +11,7 @@
 
 -define(PG_MASTER_POOL, 'PG_MASTER_POOL').
 -define(PG_GROUP_REPLICA, replica).
+-define(PG_GROUP_MASTER, master).
 -define(PG_POOL_SIZE, 15).
 -define(PG_POOL_SIZE_MAX, 50).
 
@@ -19,39 +20,39 @@
 %%====================================================================
 
 squery_read(Query) ->
-    Pid = pooler:take_group_member(?PG_GROUP_REPLICA),
+    {Type, Pid} = get_pid(?PG_GROUP_REPLICA),
     try
         Ret = epgsql:squery(Pid, Query),
         parse(Ret)
     after
-        pooler:return_group_member(?PG_GROUP_REPLICA, Pid, ok)
+        close_or_return_pid(Type, ?PG_GROUP_REPLICA, Pid)
     end.
 
 equery_read(Query, Params) ->
-    Pid = pooler:take_group_member(?PG_GROUP_REPLICA),
+    {Type, Pid} = get_pid(?PG_GROUP_REPLICA),
     try
         Ret = epgsql:equery(Pid, Query, Params),
         parse(Ret)
     after
-        pooler:return_group_member(?PG_GROUP_REPLICA, Pid, ok)
+        close_or_return_pid(Type, ?PG_GROUP_REPLICA, Pid)
     end.
 
 squery(Query) ->
-    Pid = pooler:take_member(?PG_MASTER_POOL),
+    {Type, Pid} = get_pid(?PG_GROUP_MASTER),
     try
         Ret = epgsql:squery(Pid, Query),
         parse(Ret)
     after
-        pooler:return_member(?PG_MASTER_POOL, Pid, ok)
+        close_or_return_pid(Type, ?PG_GROUP_MASTER, Pid)
     end.
 
 equery(Query, Params) ->
-    Pid = pooler:take_member(?PG_MASTER_POOL),
+    {Type, Pid} = get_pid(?PG_GROUP_MASTER),
     try
         Ret = epgsql:equery(Pid, Query, Params),
         parse(Ret)
     after
-        pooler:return_member(?PG_MASTER_POOL, Pid, ok)
+        close_or_return_pid(Type, ?PG_GROUP_MASTER, Pid)
     end.
 
 start() ->
@@ -83,6 +84,7 @@ start_pools() ->
                                 replica
                         end,
                         Args = [PgHost, PgUser, PgPassword, PgOpts],
+                        ok = store_conn_fun(Group, Args),
                         Config = [
                             {name, pg_pool_name(Pool)},
                             {group, Group},
@@ -95,6 +97,33 @@ start_pools() ->
                 end
             end || Pool <- PoolsList]
     end.
+
+get_pid(Group) ->
+    case pooler:take_group_member(Group) of
+        Pid when is_pid(Pid) ->
+            {pool, Pid};
+        error_no_members ->
+            lager:warning("Starting new direct connection for group ~p", [Group]),
+            {ok, List} = application:get_env(proximity_lib, pg_replica_fun),
+            Fun = pick_random(List),
+            {ok, Pid} = Fun(),
+            {direct, Pid}
+    end.
+
+close_or_return_pid(pool, Group, Pid) ->
+    pooler:return_group_member(Group, Pid, ok);
+close_or_return_pid(direct, _Group, Pid) ->
+    catch epgsql:close(Pid).
+
+store_conn_fun(master, Args) ->
+    application:set_env(proximity_lib, pg_master_fun, fun() -> apply(epgsql, connect, Args) end);
+store_conn_fun(replica, Args) ->
+    List = application:get_env(proximity_lib, pg_replica_fun, []),
+    application:set_env(proximity_lib, pg_replica_fun, [fun() -> apply(epgsql, connect, Args) end | List]).
+
+pick_random(List) ->
+    Index = erlang:phash(os:timestamp(), length(List)),
+    lists:nth(Index, List).
 
 pool_size() ->
     case os:getenv("PG_POOL_SIZE") of
